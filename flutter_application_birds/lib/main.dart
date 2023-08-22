@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
+import 'package:file_picker/file_picker.dart';
+import 'package:wav/wav.dart';
 
 void main() {
   runApp(const MyApp());
@@ -86,6 +89,9 @@ class _MyHomePageState extends State<MyHomePage> {
   SplayTreeMap<String, dynamic>? results;
   String stringResults = 'No results yet';
 
+  int sr = 22050;
+  int chanells = 1;
+
   void _handleRecordButtonClicking() {
     setState(() {
       switch (status) {
@@ -114,7 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
     var recordBytes = buffer.toBytes();
     buffer = BytesBuilder();
     Uint8List wavBuffer = await flutterSoundHelper.pcmToWaveBuffer(
-        inputBuffer: recordBytes, numChannels: 1, sampleRate: 22050);
+        inputBuffer: recordBytes, numChannels: 1, sampleRate: sr);
     http.post(Uri.parse(uriFittingModel), body: wavBuffer).then((response) {
       if (response.statusCode == 200) {
         // Sukces - otrzymano odpowiedź
@@ -159,6 +165,8 @@ class _MyHomePageState extends State<MyHomePage> {
       soundRecorder!.closeRecorder();
       soundPlayer.stopPlayer();
       soundPlayer.closePlayer();
+      sr = 22050;
+      chanells = 1;
     });
   }
 
@@ -175,6 +183,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> startRecording(int seconds) async {
+    sr = 22050;
+    chanells = 1;
     var timeout = Duration(seconds: seconds);
     if (buffer.isNotEmpty) {
       buffer = BytesBuilder();
@@ -193,8 +203,8 @@ class _MyHomePageState extends State<MyHomePage> {
       await soundRecorder!.startRecorder(
         toStream: recordingDataController.sink,
         codec: Codec.pcm16,
-        numChannels: 1,
-        sampleRate: 22050,
+        numChannels: chanells,
+        sampleRate: sr,
       );
     }
     Timer(timeout, _handleTimeout);
@@ -217,7 +227,7 @@ class _MyHomePageState extends State<MyHomePage> {
     soundPlayer.startPlayer(
         fromDataBuffer: buffer.toBytes(),
         codec: Codec.pcm16,
-        sampleRate: 22050,
+        sampleRate: sr,
         numChannels: 1,
         whenFinished: () {});
   }
@@ -294,6 +304,38 @@ class _MyHomePageState extends State<MyHomePage> {
                       'Reset',
                       style: TextStyle(color: Colors.blueGrey),
                     )),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['wav'],
+                          allowMultiple: false,
+                          withData: true);
+                      if (result == null) return;
+                      final file = result.files.first;
+                      if (file.bytes == null) return;
+                      var pickedBytes = file.bytes!;
+                      var wav = Wav.read(pickedBytes);
+                      sr = wav.samplesPerSecond;
+                      chanells = wav.channels.length;
+                      var monoWaw = Wav([wav.toMono()], sr);
+
+                      pickedBytes = flutterSoundHelper.waveToPCMBuffer(
+                          inputBuffer: monoWaw.write());
+
+                      setState(() {
+                        buffer = BytesBuilder();
+                        buffer.add(pickedBytes.toList());
+                        status = RecordStatus.afterRecording;
+                      });
+                    },
+                    child: Text('Select record',
+                        style: TextStyle(color: Colors.blueGrey)))
               ],
             ),
             const SizedBox(
