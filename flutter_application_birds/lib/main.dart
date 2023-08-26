@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'package:flutter_launcher_icons/constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -10,24 +11,21 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const BirdsApp());
 }
 
 const uriFittingModel = 'https://python-fitting-model-dplabwnjcq-lm.a.run.app';
 
 enum RecordStatus {
   beforeRecording('Record'),
-  duringRecording('Recording'),
-  afterRecording('Fit record'),
-  fittingModel('Sending record'),
-  afterFitting('New record');
+  duringRecording('Recording');
 
   const RecordStatus(this.buttonLabel);
   final String buttonLabel;
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class BirdsApp extends StatelessWidget {
+  const BirdsApp({super.key});
 
   // This widget is the root of your application.
   @override
@@ -35,40 +33,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Bird\'s specie recognition '),
+      home: const MyHomePage(title: 'Birds species recognition '),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -78,33 +52,32 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var status = RecordStatus.beforeRecording;
-  var resultsFromNeuralNet = <String, Float>{};
+  var recordingInTheRow = 0;
+  var resultsFromNeuralNet = <String, double>{};
   FlutterSoundRecorder? soundRecorder = FlutterSoundRecorder();
   var soundPlayer = FlutterSoundPlayer();
   var buffer = BytesBuilder();
   StreamSubscription? subscription;
   SplayTreeMap<String, dynamic>? results;
   String stringResults = 'No results yet';
+  var _buttonIcon = Icon(Icons.circle);
 
   void _handleRecordButtonClicking() {
     setState(() {
       switch (status) {
         case RecordStatus.beforeRecording:
-          startRecording(10);
+          setState(() {
+            _buttonIcon = Icon(Icons.stop_rounded);
+          });
+          startRecording();
           status = RecordStatus.duringRecording;
           break;
         case RecordStatus.duringRecording:
-          // do nothing
-          break;
-        case RecordStatus.afterRecording:
-          _fitModel();
-          status = RecordStatus.fittingModel;
-          break;
-        case RecordStatus.fittingModel:
-          // do nothing
-          break;
-        case RecordStatus.afterFitting:
           _restartRecordingProces();
+          stringResults = 'No results yet';
+          setState(() {
+            _buttonIcon = Icon(Icons.circle);
+          });
           break;
       }
     });
@@ -116,25 +89,49 @@ class _MyHomePageState extends State<MyHomePage> {
     Uint8List wavBuffer = await flutterSoundHelper.pcmToWaveBuffer(
         inputBuffer: recordBytes, numChannels: 1, sampleRate: 22050);
     http.post(Uri.parse(uriFittingModel), body: wavBuffer).then((response) {
-      if (response.statusCode == 200) {
+      if ((response.statusCode == 200) &
+          (status == RecordStatus.duringRecording)) {
         // Sukces - otrzymano odpowiedź
+
         print('Odpowiedź: ${response.body}');
 
         setState(() {
-          status = RecordStatus.afterFitting;
+          recordingInTheRow += 1;
           var unsortedResults = json.decode(response.body);
+          print(unsortedResults.runtimeType);
+
+          resultsFromNeuralNet.forEach((key, value) {
+            resultsFromNeuralNet[key] =
+                value * (recordingInTheRow / (recordingInTheRow + 1));
+          });
+
+          unsortedResults.forEach((key, value) {
+            if (resultsFromNeuralNet[key] == null) {
+              resultsFromNeuralNet[key] = value / recordingInTheRow;
+            } else {
+              resultsFromNeuralNet[key] =
+                  (resultsFromNeuralNet[key]! * (recordingInTheRow - 1) +
+                          value) /
+                      recordingInTheRow;
+            }
+          });
+
           results = SplayTreeMap.from(
-              unsortedResults,
-              (key1, key2) =>
-                  unsortedResults[key2].compareTo(unsortedResults[key1]));
+              resultsFromNeuralNet,
+              (key1, key2) => resultsFromNeuralNet[key2]!
+                  .compareTo(resultsFromNeuralNet[key1]!));
           final buffer = StringBuffer('');
+          int counter = 0;
           for (String spec in results!.keys) {
-            buffer.write(spec.replaceFirst(RegExp('_'), ' '));
-            buffer.write(' - ');
-            var value = results![spec];
-            if (value is double) {
-              var valueString = (value * 100).toStringAsFixed(2);
-              buffer.write('$valueString%\n');
+            counter += 1;
+            if (counter <= 5) {
+              buffer.write(spec.replaceFirst(RegExp('_'), ' '));
+              buffer.write(' - ');
+              var value = results![spec];
+              if (value is double) {
+                var valueString = (value * 100).toStringAsFixed(2);
+                buffer.write('$valueString%\n');
+              }
             }
           }
           stringResults = buffer.toString();
@@ -159,22 +156,13 @@ class _MyHomePageState extends State<MyHomePage> {
       soundRecorder!.closeRecorder();
       soundPlayer.stopPlayer();
       soundPlayer.closePlayer();
+      recordingInTheRow = 0;
+      resultsFromNeuralNet.clear();
     });
   }
 
-  void _handleTimeout() async {
-    await soundRecorder!.stopRecorder();
-    await soundRecorder!.closeRecorder();
-    if (subscription != null) {
-      await subscription!.cancel();
-      subscription = null;
-    }
-    setState(() {
-      status = RecordStatus.afterRecording;
-    });
-  }
-
-  Future<void> startRecording(int seconds) async {
+  Future<void> startRecording() async {
+    int seconds = 10;
     var timeout = Duration(seconds: seconds);
     if (buffer.isNotEmpty) {
       buffer = BytesBuilder();
@@ -197,7 +185,21 @@ class _MyHomePageState extends State<MyHomePage> {
         sampleRate: 22050,
       );
     }
-    Timer(timeout, _handleTimeout);
+    Timer(timeout, _restartRecording);
+  }
+
+  void _restartRecording() async {
+    await soundRecorder!.stopRecorder();
+    await soundRecorder!.closeRecorder();
+    if (subscription != null) {
+      await subscription!.cancel();
+      subscription = null;
+    }
+
+    if (status == RecordStatus.duringRecording) {
+      _fitModel();
+      startRecording();
+    }
   }
 
   void stopRecording() async {
@@ -222,6 +224,8 @@ class _MyHomePageState extends State<MyHomePage> {
         whenFinished: () {});
   }
 
+  void pickFile() async {}
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -229,73 +233,36 @@ class _MyHomePageState extends State<MyHomePage> {
       fontWeight: FontWeight.bold,
       color: theme.colorScheme.onPrimary,
     );
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      shape: const CircleBorder(),
-                      elevation: 10,
-                      fixedSize: const ui.Size(200, 200)),
-                  onPressed: () {
-                    _handleRecordButtonClicking();
-                  },
-                  child: Text(
-                    status.buttonLabel,
-                    style: style,
-                    textAlign: TextAlign.center,
-                  )),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.onSecondary),
-                    onPressed: () {
-                      playLastRecord();
-                    },
-                    child: const Text(
-                      'Play',
-                      style: TextStyle(color: Colors.blueGrey),
-                    )),
-                const SizedBox(
-                  width: 20,
-                ),
-                ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.onSecondary),
-                    onPressed: () {
-                      _restartRecordingProces();
-                    },
-                    child: const Text(
-                      'Reset',
-                      style: TextStyle(color: Colors.blueGrey),
-                    )),
-              ],
-            ),
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton.outlined(
+                        onPressed: _handleRecordButtonClicking,
+                        iconSize: 140,
+                        color: Colors.red,
+                        icon: _buttonIcon),
+                    SizedBox(
+                      width: 10,
+                    ),
+                    IconButton.filledTonal(
+                      onPressed: pickFile,
+                      icon: Icon(Icons.add),
+                      iconSize: 30,
+                    ),
+                  ],
+                )),
             const SizedBox(
               height: 20,
             ),
