@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
 import 'package:file_picker/file_picker.dart';
 import 'package:wav/wav.dart';
+import 'package:logger/logger.dart';
 
 void main() {
   runApp(const BirdsApp());
@@ -58,16 +59,14 @@ class _MyHomePageState extends State<MyHomePage> {
   var status = RecordStatus.beforeRecording;
   var recordingInTheRow = 0;
   var resultsFromNeuralNet = <String, double>{};
-  FlutterSoundRecorder? soundRecorder = FlutterSoundRecorder();
-  var soundPlayer = FlutterSoundPlayer();
+  FlutterSoundRecorder? soundRecorder =
+      FlutterSoundRecorder(logLevel: Level.nothing);
+  var soundPlayer = FlutterSoundPlayer(logLevel: Level.nothing);
   var buffer = BytesBuilder();
   StreamSubscription? subscription;
   SplayTreeMap<String, dynamic>? results;
   String stringResults = 'No results yet';
   var _buttonIcon = Icon(Icons.circle);
-
-  int sr = 22050;
-  int chanells = 1;
 
   int sr = 22050;
   int chanells = 1;
@@ -113,8 +112,10 @@ class _MyHomePageState extends State<MyHomePage> {
           print(unsortedResults.runtimeType);
 
           resultsFromNeuralNet.forEach((key, value) {
-            resultsFromNeuralNet[key] =
-                value * (recordingInTheRow / (recordingInTheRow + 1));
+            resultsFromNeuralNet[key] = value * (recordingInTheRow - 1);
+            if (unsortedResults[key] == null) {
+              unsortedResults[key] = 0.0;
+            }
           });
 
           unsortedResults.forEach((key, value) {
@@ -122,9 +123,7 @@ class _MyHomePageState extends State<MyHomePage> {
               resultsFromNeuralNet[key] = value / recordingInTheRow;
             } else {
               resultsFromNeuralNet[key] =
-                  (resultsFromNeuralNet[key]! * (recordingInTheRow - 1) +
-                          value) /
-                      recordingInTheRow;
+                  (resultsFromNeuralNet[key]! + value) / recordingInTheRow;
             }
           });
 
@@ -305,7 +304,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ],
                 )),
-
             const SizedBox(
               height: 20,
             ),
