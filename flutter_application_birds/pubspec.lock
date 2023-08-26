@@ -129,6 +129,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.1"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: bdfa035a974a0c080576c4c8ed01cdf9d1b406a04c7daa05443ef0383a97bedc
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.3.4"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -150,6 +158,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: "950e77c2bbe1692bc0874fc7fb491b96a4dc340457f4ea1641443d0a6c1ea360"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.15"
   flutter_sound:
     dependency: "direct main"
     description:
@@ -501,6 +517,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
+  wav:
+    dependency: "direct main"
+    description:
+      name: wav
+      sha256: ca53b6b494bbe37984dd3c7262294938b6d7a362b0f434f4c534f1ebb459f8be
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   web:
     dependency: transitive
     description:

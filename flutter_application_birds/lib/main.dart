@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:collection';
+import 'package:file_picker/file_picker.dart';
+import 'package:wav/wav.dart';
 
 void main() {
   runApp(const BirdsApp());
@@ -18,7 +20,8 @@ const uriFittingModel = 'https://python-fitting-model-dplabwnjcq-lm.a.run.app';
 
 enum RecordStatus {
   beforeRecording('Record'),
-  duringRecording('Recording');
+  duringRecording('Recording'),
+  pickingFile('');
 
   const RecordStatus(this.buttonLabel);
   final String buttonLabel;
@@ -62,22 +65,27 @@ class _MyHomePageState extends State<MyHomePage> {
   String stringResults = 'No results yet';
   var _buttonIcon = Icon(Icons.circle);
 
+  int sr = 22050;
+  int chanells = 1;
+
   void _handleRecordButtonClicking() {
     setState(() {
       switch (status) {
         case RecordStatus.beforeRecording:
-          setState(() {
-            _buttonIcon = Icon(Icons.stop_rounded);
-          });
+          _buttonIcon = Icon(Icons.stop_rounded);
+          stringResults = 'No results yet';
           startRecording();
           status = RecordStatus.duringRecording;
           break;
         case RecordStatus.duringRecording:
           _restartRecordingProces();
-          stringResults = 'No results yet';
+
           setState(() {
             _buttonIcon = Icon(Icons.circle);
           });
+          break;
+        case RecordStatus.pickingFile:
+          // do nothing
           break;
       }
     });
@@ -87,10 +95,10 @@ class _MyHomePageState extends State<MyHomePage> {
     var recordBytes = buffer.toBytes();
     buffer = BytesBuilder();
     Uint8List wavBuffer = await flutterSoundHelper.pcmToWaveBuffer(
-        inputBuffer: recordBytes, numChannels: 1, sampleRate: 22050);
+        inputBuffer: recordBytes, numChannels: chanells, sampleRate: sr);
     http.post(Uri.parse(uriFittingModel), body: wavBuffer).then((response) {
       if ((response.statusCode == 200) &
-          (status == RecordStatus.duringRecording)) {
+          (status != RecordStatus.beforeRecording)) {
         // Sukces - otrzymano odpowiedź
 
         print('Odpowiedź: ${response.body}');
@@ -135,6 +143,9 @@ class _MyHomePageState extends State<MyHomePage> {
             }
           }
           stringResults = buffer.toString();
+          if (status == RecordStatus.pickingFile) {
+            _restartRecordingProces();
+          }
         });
       } else {
         // Błąd - otrzymano kod inny niż 200
@@ -158,6 +169,9 @@ class _MyHomePageState extends State<MyHomePage> {
       soundPlayer.closePlayer();
       recordingInTheRow = 0;
       resultsFromNeuralNet.clear();
+      sr = 22050;
+      chanells = 1;
+      _buttonIcon = Icon(Icons.circle);
     });
   }
 
@@ -181,8 +195,8 @@ class _MyHomePageState extends State<MyHomePage> {
       await soundRecorder!.startRecorder(
         toStream: recordingDataController.sink,
         codec: Codec.pcm16,
-        numChannels: 1,
-        sampleRate: 22050,
+        numChannels: chanells,
+        sampleRate: sr,
       );
     }
     Timer(timeout, _restartRecording);
@@ -224,7 +238,31 @@ class _MyHomePageState extends State<MyHomePage> {
         whenFinished: () {});
   }
 
-  void pickFile() async {}
+  void pickFile() async {
+    status = RecordStatus.pickingFile;
+    _buttonIcon = Icon(Icons.do_disturb);
+    final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['wav'],
+        allowMultiple: false,
+        withData: true);
+    if (result == null) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
+    var pickedBytes = file.bytes!;
+    var wav = Wav.read(pickedBytes);
+    sr = wav.samplesPerSecond;
+
+    setState(() {
+      chanells = wav.channels.length;
+      var monoWaw = Wav([wav.toMono()], sr);
+      pickedBytes =
+          flutterSoundHelper.waveToPCMBuffer(inputBuffer: monoWaw.write());
+      buffer = BytesBuilder();
+      buffer.add(pickedBytes.toList());
+      _fitModel();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
