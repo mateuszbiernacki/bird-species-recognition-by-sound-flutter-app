@@ -1,10 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:math';
-import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'package:flutter_launcher_icons/constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -269,12 +265,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.headlineMedium!.copyWith(
-      fontWeight: FontWeight.bold,
-      color: theme.colorScheme.onPrimary,
-    );
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
