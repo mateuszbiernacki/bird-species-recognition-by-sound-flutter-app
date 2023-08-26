@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter_launcher_icons/constants.dart';
@@ -68,6 +69,9 @@ class _MyHomePageState extends State<MyHomePage> {
   int sr = 22050;
   int chanells = 1;
 
+  int sr = 22050;
+  int chanells = 1;
+
   void _handleRecordButtonClicking() {
     setState(() {
       switch (status) {
@@ -95,7 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
     var recordBytes = buffer.toBytes();
     buffer = BytesBuilder();
     Uint8List wavBuffer = await flutterSoundHelper.pcmToWaveBuffer(
-        inputBuffer: recordBytes, numChannels: chanells, sampleRate: sr);
+        inputBuffer: recordBytes, numChannels: 1, sampleRate: sr);
     http.post(Uri.parse(uriFittingModel), body: wavBuffer).then((response) {
       if ((response.statusCode == 200) &
           (status != RecordStatus.beforeRecording)) {
@@ -233,7 +237,7 @@ class _MyHomePageState extends State<MyHomePage> {
     soundPlayer.startPlayer(
         fromDataBuffer: buffer.toBytes(),
         codec: Codec.pcm16,
-        sampleRate: 22050,
+        sampleRate: sr,
         numChannels: 1,
         whenFinished: () {});
   }
@@ -301,6 +305,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ],
                 )),
+
             const SizedBox(
               height: 20,
             ),
