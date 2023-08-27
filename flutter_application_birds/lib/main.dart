@@ -15,6 +15,7 @@ void main() {
 }
 
 const uriFittingModel = 'https://python-fitting-model-dplabwnjcq-lm.a.run.app';
+// const uriFittingModel = "http://10.0.2.2:8080/";
 
 enum RecordStatus {
   beforeRecording('Record'),
@@ -27,8 +28,6 @@ enum RecordStatus {
 
 class BirdsApp extends StatelessWidget {
   const BirdsApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -61,8 +60,14 @@ class _MyHomePageState extends State<MyHomePage> {
   var buffer = BytesBuilder();
   StreamSubscription? subscription;
   SplayTreeMap<String, dynamic>? results;
-  String stringResults = 'No results yet';
   var _buttonIcon = Icon(Icons.circle);
+  List<List<String>> tableWithResults = [
+    ['\n', ''],
+    ['\n', ''],
+    ['\n', ''],
+    ['\n', ''],
+    ['\n', ''],
+  ];
 
   int sr = 22050;
   int chanells = 1;
@@ -72,7 +77,13 @@ class _MyHomePageState extends State<MyHomePage> {
       switch (status) {
         case RecordStatus.beforeRecording:
           _buttonIcon = Icon(Icons.stop_rounded);
-          stringResults = 'No results yet';
+          tableWithResults = [
+            ['\n', ''],
+            ['\n', ''],
+            ['\n', ''],
+            ['\n', ''],
+            ['\n', ''],
+          ];
           startRecording();
           status = RecordStatus.duringRecording;
           break;
@@ -105,7 +116,6 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           recordingInTheRow += 1;
           var unsortedResults = json.decode(response.body);
-          print(unsortedResults.runtimeType);
 
           resultsFromNeuralNet.forEach((key, value) {
             resultsFromNeuralNet[key] = value * (recordingInTheRow - 1);
@@ -127,21 +137,19 @@ class _MyHomePageState extends State<MyHomePage> {
               resultsFromNeuralNet,
               (key1, key2) => resultsFromNeuralNet[key2]!
                   .compareTo(resultsFromNeuralNet[key1]!));
-          final buffer = StringBuffer('');
           int counter = 0;
           for (String spec in results!.keys) {
             counter += 1;
             if (counter <= 5) {
-              buffer.write(spec.replaceFirst(RegExp('_'), ' '));
-              buffer.write(' - ');
+              tableWithResults[counter - 1][0] =
+                  spec.replaceFirst(RegExp('_'), ' ');
               var value = results![spec];
               if (value is double) {
                 var valueString = (value * 100).toStringAsFixed(2);
-                buffer.write('$valueString%\n');
+                tableWithResults[counter - 1][1] = '$valueString%';
               }
             }
           }
-          stringResults = buffer.toString();
           if (status == RecordStatus.pickingFile) {
             _restartRecordingProces();
           }
@@ -297,7 +305,97 @@ class _MyHomePageState extends State<MyHomePage> {
             const SizedBox(
               height: 20,
             ),
-            Text(stringResults),
+            // Text(stringResults),
+            Table(
+              textDirection: TextDirection.ltr,
+              columnWidths: const <int, TableColumnWidth>{
+                0: IntrinsicColumnWidth(),
+                1: IntrinsicColumnWidth(),
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: <TableRow>[
+                TableRow(children: <Widget>[
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[0][0]),
+                    ),
+                  ),
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[0][1],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                    ),
+                  ),
+                ]),
+                TableRow(children: <Widget>[
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[1][0]),
+                    ),
+                  ),
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[1][1],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                    ),
+                  ),
+                ]),
+                TableRow(children: <Widget>[
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[2][0]),
+                    ),
+                  ),
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[2][1],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                    ),
+                  ),
+                ]),
+                TableRow(children: <Widget>[
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[3][0]),
+                    ),
+                  ),
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[3][1],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                    ),
+                  ),
+                ]),
+                TableRow(children: <Widget>[
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[4][0]),
+                    ),
+                  ),
+                  Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(tableWithResults[4][1],
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                    ),
+                  ),
+                ])
+              ],
+            )
           ],
         ),
       ),
