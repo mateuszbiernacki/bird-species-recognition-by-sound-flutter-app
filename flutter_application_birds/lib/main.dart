@@ -36,7 +36,7 @@ class BirdsApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Birds species recognition '),
+      home: const MyHomePage(title: 'Bird species recognition '),
     );
   }
 }
